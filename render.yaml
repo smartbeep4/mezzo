@@ -1,0 +1,12 @@
+# Render Static Site configuration for Mezzo
+# Deploy target: free tier Static Sites (pure dist/ from Vite)
+# See plans/08-deployment-render-static.md
+
+services:
+  - type: static_site
+    name: mezzo
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    # No env vars needed for pure static v1
+    # Routes not required (SPA fallback not needed for this experience)

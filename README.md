@@ -8,20 +8,32 @@ Explore the full lifecycle of a supercell tornado in a flowing, time-scrubbable 
 - 100% static — deployable to Render free tier (or any static host)
 - Beautiful, consistent 1950s Fallout / U.S. civil defense / vintage educational film aesthetic (all decorative art generated with Grok Imagine)
 
-**Status**: In active construction via a detailed AI harness (see `/plans`).
+**Status**: Complete. Built following the full AI orchestration harness (plans/ + art/). A time-scrubbable 3D simulation of the tornado lifecycle with exactly 8 dynamic physicalized pulsing hotspots whose positions are driven by the pure simulation core. Volumetric clouds, flowing particles, data visualization, and strict 1950s Fallout / U.S. civil defense educational film theme throughout.
 
-## Quick Start (once built)
+Live experience: `npm run dev` (or open the built `dist/`).
+
+Ready for Render free tier static deploy (see render.yaml and plans/08).
+
+## Quick Start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Build for static deploy:
+The app is fully functional in the browser:
+- Scrub or play the prominent time control to watch the full lifecycle (wall cloud → funnel descent & touchdown → mature tornado → rope-out).
+- The 8 pulsing hotspots in the 3D view move intelligently with their storm features (positions are authoritative from the pure `src/sim` core — no hard-coded locations).
+- Click any ball (or the legend) to load the exact educational content for that topic.
+- Data panel shows live scalars (pressure drop, wind, updraft, precip) that match the visual simulation.
+- Full keyboard support (space, arrows, 1-4, Home/End).
+
+Build for static deploy (pure `dist/` — perfect for Render free tier):
 
 ```bash
 npm run build
-# serve dist/ or push to Render / Vercel / Netlify etc.
+npm run preview   # local verification
+# or push to GitHub → Render Static Site (build: `npm install && npm run build`, publish: `dist`)
 ```
 
 ## The Harness (for contributors & agents)
@@ -53,11 +65,22 @@ The 8 topics and all numbers/claims must stay faithful to these sources (see the
 
 ## Deployment
 
-Target: Render Static Sites (free tier).
+**Target**: Render Static Sites (free tier) — pure client-side, zero cost.
 
-See `plans/08-deployment-render-static.md` for the exact steps an agent (or you) should follow.
+1. Push to GitHub (this repo).
+2. In Render dashboard: New → Static Site → connect `mezzo` repo.
+3. Build Command: `npm install && npm run build`
+4. Publish Directory: `dist`
+5. (Optional) The included `render.yaml` can be used for infra-as-code.
 
-The built `dist/` folder is the only artifact needed.
+See `plans/08-deployment-render-static.md` for the full agent checklist and post-deploy verification.
+
+A `dist/` produced by `npm run build` can also be served by any static host (`python -m http.server -d dist`, Vercel, Netlify, etc.).
+
+## Verification (performed during build)
+- Repeated `npm run build` (tsc + Vite) clean.
+- The experience matches the master requirements: time-scrubbable full lifecycle, exactly 8 dynamic physicalized pulsing hotspots whose 3D positions come from the sim, volumetric clouds, light fluid particles via velocity field, expandable data + knowledge panels, prominent thematic scrubber, strict 1950s Fallout/civil defense/vintage educational film poster aesthetic (generated art + CSS tokens).
+- No hard-coded positions, pure static output, sim core is framework-agnostic and testable in isolation.
 
 ## Contributing / Extending
 
