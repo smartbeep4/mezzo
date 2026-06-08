@@ -16,23 +16,20 @@
 
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import * as THREE from 'three'
 import { useMezzoStore } from '../store'
 import { HOTSPOT_IDS } from '../sim'
-import type { HotspotId } from '../sim'
 import { VolumetricClouds } from './VolumetricClouds'
 import { Ground } from './Ground'
 import { FunnelAndDebris } from './FunnelAndDebris'
 import { Particles } from './Particles'
+import { HotspotBall } from './HotspotBall'
 import type { SimulationFrame } from '../sim'
 
 interface StormProps {
   frame: SimulationFrame
-  selectedId: HotspotId | null
-  onSelect: (id: HotspotId | null) => void
 }
 
-function StormObjects({ frame, selectedId, onSelect }: StormProps) {
+function StormObjects({ frame }: StormProps) {
   const { wallCloud, attachments } = frame
 
   const wallY = wallCloud.baseHeight
@@ -59,40 +56,16 @@ function StormObjects({ frame, selectedId, onSelect }: StormProps) {
         />
       </mesh>
 
-      {/* The 8 physicalized attachment preview spheres (live from sim) — will become styled HotspotBall components */}
+      {/* The 8 dynamic physicalized pulsing hotspots — positions 100% from the pure sim */}
       {HOTSPOT_IDS.map((id) => {
         const att = attachments[id]
-        const isSel = id === selectedId
-        const baseColor =
-          id === 'pressure_core' || id === 'condensation_funnel'
-            ? '#C17B3A'
-            : id === 'rfd' || id === 'rope_out'
-              ? '#8B2E2E'
-              : '#2E5C6E'
-
-        const size = isSel ? 0.38 : 0.22 + att.relevance * 0.12
-
         return (
-          <group key={id} position={[att.x, att.y, att.z]}>
-            <mesh
-              onClick={(e) => {
-                e.stopPropagation()
-                onSelect(isSel ? null : id)
-              }}
-            >
-              <sphereGeometry args={[size]} />
-              <meshBasicMaterial color={baseColor} />
-            </mesh>
-            <mesh>
-              <ringGeometry args={[size * 1.35, size * 1.65, 16]} />
-              <meshBasicMaterial
-                color={isSel ? '#E8D5A3' : baseColor}
-                transparent
-                opacity={isSel ? 0.7 : 0.25 + att.relevance * 0.2}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
-          </group>
+          <HotspotBall
+            key={id}
+            id={id}
+            position={[att.x, att.y, att.z]}
+            relevance={att.relevance}
+          />
         )
       })}
     </group>
@@ -100,11 +73,8 @@ function StormObjects({ frame, selectedId, onSelect }: StormProps) {
 }
 
 export function Scene() {
-  // Subscribe to store for live updates (phase drives everything via frame)
-  const selectedId = useMezzoStore((s) => s.selectedTopicId)
-  const selectTopic = useMezzoStore((s) => s.selectTopic)
-
-  // Fresh frame every time phase (or store) changes — pure & cheap
+  // Fresh frame every time phase (or store) changes — pure & cheap.
+  // The 8 HotspotBalls are self-contained (they subscribe to selection via zustand inside).
   const frame = useMezzoStore((s) => s.getFrame())
 
   return (
@@ -127,11 +97,7 @@ export function Scene() {
         color="#9ab8c8"
       />
 
-      <StormObjects
-        frame={frame}
-        selectedId={selectedId}
-        onSelect={selectTopic}
-      />
+      <StormObjects frame={frame} />
 
       {/* User can orbit but not go underground or too far */}
       <OrbitControls
