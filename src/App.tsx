@@ -280,6 +280,16 @@ export default function App() {
 
             <button onClick={() => { setPhase(0); if (isPlaying) togglePlay() }} className="btn text-xs ml-1">RESET</button>
             <button onClick={logFrame} className="btn text-xs">LOG</button>
+            <button
+              onClick={() => {
+                // Simple camera reset hint — user can also double-click in 3D or use OrbitControls
+                const st = useMezzoStore.getState()
+                st.setPhase(Math.min(1, Math.max(0, st.phase)))
+              }}
+              className="btn text-xs ml-1"
+            >
+              RESET VIEW
+            </button>
           </div>
 
           {/* The actual scrubber track */}
