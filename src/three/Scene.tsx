@@ -19,8 +19,11 @@ import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { useMemo } from 'react'
 import { useMezzoStore } from '../store'
-import { HOTSPOT_IDS, type HotspotId } from '../sim'
-import type { SimulationFrame } from '../sim/types'
+import { HOTSPOT_IDS } from '../sim'
+import type { HotspotId } from '../sim'
+import { VolumetricClouds } from './VolumetricClouds'
+import { Ground } from './Ground'
+import type { SimulationFrame } from '../sim'
 
 interface StormProps {
   frame: SimulationFrame
@@ -31,33 +34,20 @@ interface StormProps {
 function StormObjects({ frame, selectedId, onSelect }: StormProps) {
   const { funnel, wallCloud, attachments } = frame
 
-  // Simple funnel stub: cylinder that changes height, radii, slight tilt via rotation
+  // Simple funnel stub (will be replaced by proper FunnelAndDebris in next phase)
   const funnelRotation = useMemo(() => {
     return new THREE.Euler(funnel.tiltX, 0, funnel.tiltZ)
   }, [funnel.tiltX, funnel.tiltZ])
 
-  // Wall cloud as a flattened sphere at base height
   const wallY = wallCloud.baseHeight
 
   return (
     <group>
-      {/* Ground plane - stylized earth / plains */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.02, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[60, 60]} />
-        <meshLambertMaterial color="#2f271f" />
-      </mesh>
+      {/* Volumetric clouds + improved ground (phase-driven) */}
+      <VolumetricClouds frame={frame} />
+      <Ground frame={frame} />
 
-      {/* Simple ground circle for tornado base area */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[4.5]} />
-        <meshLambertMaterial color="#3a2f1f" />
-      </mesh>
-
-      {/* Funnel stub (will be replaced by proper FunnelAndDebris) */}
+      {/* Funnel stub (cylinder + core) */}
       <group position={[0, funnel.height / 2, 0]} rotation={funnelRotation}>
         <mesh>
           <cylinderGeometry
@@ -77,7 +67,6 @@ function StormObjects({ frame, selectedId, onSelect }: StormProps) {
             opacity={0.35 + funnel.condensation * 0.45}
           />
         </mesh>
-        {/* Inner darker core for condensation hint */}
         <mesh>
           <cylinderGeometry
             args={[
@@ -98,7 +87,7 @@ function StormObjects({ frame, selectedId, onSelect }: StormProps) {
         </mesh>
       </group>
 
-      {/* Wall cloud lowering indicator (broad lowering mass) */}
+      {/* Wall cloud mass hint */}
       <mesh position={[0, wallY + 0.3, 0]}>
         <sphereGeometry args={[wallCloud.radius * 0.9]} />
         <meshLambertMaterial
@@ -108,18 +97,16 @@ function StormObjects({ frame, selectedId, onSelect }: StormProps) {
         />
       </mesh>
 
-      {/* The 8 physicalized attachment preview spheres.
-          Their positions come 100% from the pure sim (attachments.ts).
-          This proves the "dynamic physicalized hotspots" requirement in 3D. */}
+      {/* The 8 physicalized attachment preview spheres (live from sim) */}
       {HOTSPOT_IDS.map((id) => {
         const att = attachments[id]
         const isSel = id === selectedId
         const baseColor =
           id === 'pressure_core' || id === 'condensation_funnel'
-            ? '#C17B3A' // mustard for core drama
+            ? '#C17B3A'
             : id === 'rfd' || id === 'rope_out'
-              ? '#8B2E2E' // brick/alert
-              : '#2E5C6E' // teal for meso/wall/inflow/debris
+              ? '#8B2E2E'
+              : '#2E5C6E'
 
         const size = isSel ? 0.38 : 0.22 + att.relevance * 0.12
 
@@ -134,7 +121,6 @@ function StormObjects({ frame, selectedId, onSelect }: StormProps) {
               <sphereGeometry args={[size]} />
               <meshBasicMaterial color={baseColor} />
             </mesh>
-            {/* Subtle glow ring for visibility */}
             <mesh>
               <ringGeometry args={[size * 1.35, size * 1.65, 16]} />
               <meshBasicMaterial
@@ -148,7 +134,7 @@ function StormObjects({ frame, selectedId, onSelect }: StormProps) {
         )
       })}
 
-      {/* Very rough meso aloft indicator (high ring) */}
+      {/* Meso ring aloft */}
       <mesh position={[0, frame.meso.height, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <ringGeometry args={[frame.meso.radius * 0.7, frame.meso.radius * 0.85, 24]} />
         <meshBasicMaterial color="#2E5C6E" transparent opacity={0.25} side={THREE.DoubleSide} />
