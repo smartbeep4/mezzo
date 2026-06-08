@@ -1,0 +1,7 @@
+Prompt used for image 2 (UI + palette mock):
+
+1950s Fallout civil defense style color palette demonstration and UI mock, aged manila paper background, swatches of mustard #C17B3A, teal #2E5C6E, brick red #8B2E2E, cream #E8D5A3, bold "MEZZO" stamp in top left, a rectangular panel with "KNOWLEDGE — WALL CLOUD" header, small data readouts in typewriter style "CORE PRESSURE DROP 92 mb", "EST WIND 165 MPH", thin technical line diagram of a vortex cross-section on the right, halftone, rubber stamps, clean instructional layout, square format
+
+Aspect: 1:1
+Generated: first batch
+Usage: Reference for Tailwind color tokens, panel chrome, stamp styling, data readout typography. Agents should study the layout density and stamp treatment.

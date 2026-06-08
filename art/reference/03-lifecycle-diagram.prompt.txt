@@ -1,0 +1,7 @@
+Prompt used for image 3 (lifecycle film-strip style diagram):
+
+Vintage 1950s US Weather Bureau training film strip frame, Fallout aesthetic, "HOW TORNADOES FORM" title in bold condensed letters, four sequential illustrated panels showing wall cloud lowering, condensation funnel, full tornado on ground with debris, rope-out stage, teal and mustard colors, halftone, paper texture, small "FOR OFFICIAL TRAINING USE" stamp, very clear educational diagram style with arrows and labels, landscape orientation
+
+Aspect: 16:9
+Generated: first batch
+Usage: Inspiration for the time scrubber stage markers and any "lifecycle at a glance" diagram in the knowledge or help content. Also good reference for how to label the four main phases in the UI.

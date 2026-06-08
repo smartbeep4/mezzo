@@ -1,0 +1,7 @@
+Prompt used for image 1 (hero poster):
+
+1950s US civil defense educational poster style, Fallout game aesthetic, limited color palette of aged cream, mustard yellow, government teal, brick red and near-black, bold condensed sans all-caps title "MEZZO", subtitle "Mesocyclone & Tornado Visualizer — Training Film No. 3", dramatic stylized tornado funnel descending from a supercell wall cloud over flat plains, strong side lighting, halftone texture, rubber stamp "PROPERTY OF U.S. WEATHER BUREAU — 1957", aged paper background with subtle film grain and vignette, high detail technical illustration mixed with painted drama, instructional government poster, square composition suitable for web hero image
+
+Aspect: 16:9
+Generated: first batch by orchestration planner
+Usage: Main hero / splash image, possible loading screen background treatment, README header.

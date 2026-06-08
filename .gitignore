@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor & OS
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+*.sublime-*
+
+# Misc
+*.log
+.cache/
+tmp/
+temp/
+
+# Keep generated art references but ignore very large binaries if any (we'll commit the key PNGs)
+# public/art/ is committed for the static deploy
