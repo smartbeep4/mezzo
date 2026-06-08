@@ -45,17 +45,16 @@
 ## Recommended Agent Workflow (for future orchestrators)
 
 1. **Read the full harness** (all plans/*.md + art/theme-guide.md). Ask clarifying questions via the user only if something is truly ambiguous after reading.
-2. **Set up or continue the project** following `plans/01-architecture-and-stack.md` (Vite + React-TS + R3F recommended long-term stack with pure sim core).
-3. **Implement the simulation core first** (plans/02 and 03). Test it by logging or a tiny console harness before wiring to three.js.
-4. **Theme & art**: Ensure all referenced generated images from `art/reference/` are copied/optimized into `public/art/`. Apply theme classes/tokens globally early.
-5. **Build the 3D layer** against the sim outputs (phase-driven).
-6. **Wire UI** (time scrubber + data panel + knowledge panel + pulsing balls) per plans/05.
-7. **Content**: Drop in the exact 8 topics.
-8. **Polish, perf, responsive, keyboard**.
-9. **Deploy verification** on Render exactly as described in plans/08. Run the full manual checklist.
-10. **Self-review**: Re-read the master instructions and relevant spec. Fix any violations. Produce a short "build log" or update a `BUILD-LOG.md` noting what was done and any deviations with justification.
-
-Parallel work is allowed (e.g. one agent on sim core, another on theme art + UI chrome) as long as the sim core contract is agreed first and interfaces are respected.
+2. **Evaluate agentic execution strategy**. After reading, decide whether to proceed as a single-threaded implementer or as an orchestrator that uses worktrees + `spawn_subagent` for parallel streams. See the "Agentic Workflow Patterns" section below.
+3. **Set up or continue the project** following `plans/01-architecture-and-stack.md` (Vite + React-TS + R3F recommended long-term stack with pure sim core).
+4. **Implement the simulation core first** (plans/02 and 03). Test it by logging or a tiny console harness before wiring to three.js. Freeze the public interface (`computeSimulation` + `SimulationFrame` + attachment contract) before heavy parallel work on consumers.
+5. **Theme & art**: Ensure all referenced generated images from `art/reference/` are copied/optimized into `public/art/`. Apply theme classes/tokens globally early.
+6. **Build the 3D layer** against the sim outputs (phase-driven).
+7. **Wire UI** (time scrubber + data panel + knowledge panel + pulsing balls) per plans/05.
+8. **Content**: Drop in the exact 8 topics.
+9. **Polish, perf, responsive, keyboard**.
+10. **Deploy verification** on Render exactly as described in plans/08. Run the full manual checklist.
+11. **Self-review**: Re-read the master instructions and relevant spec. Fix any violations. Produce a short "build log" or update a `BUILD-LOG.md` noting what was done and any deviations with justification.
 
 ---
 
@@ -89,9 +88,11 @@ Hotspot IDs and their semantic meaning are defined in the content spec.
 
 - `npm run dev`, `npm run build`, `npm run preview`
 - For art: the `image_gen` and `image_edit` tools (via the Grok interface) using only the prompts in the theme plan.
-- Terminal for git: `git status`, `git add -p`, `git commit -m "type: message (refs plan/XX)"`
-- Prefer `search_replace` (or the `write` tool for brand new files) for all code and doc changes. Never use raw echo/cat for source.
-- After any substantial change, at minimum run the build and the preview checklist.
+- Terminal for git and orchestration: `git status`, `git worktree add ../mezzo-sim-core -b sim-core`, `git add -p`, `git commit -m "type: message (refs plan/XX)"`. Worktrees are the preferred way to give parallel agents isolated working directories.
+- Agent spawning: Use the `spawn_subagent` tool to delegate scoped work (e.g. "implement and test the pure simulation core in isolation"). Prefer `isolation="worktree"` for substantial parallel streams and `capability_mode` restrictions when appropriate (read-only for reviewers, etc.).
+- Coordination: `todo_write` is the primary mechanism for the orchestrator to break down work and for sub-agents to report status.
+- File operations: Prefer `search_replace` (or the `write` tool for brand new files) for all code and doc changes. Never use raw echo/cat for source.
+- After any substantial change (especially integration points), at minimum run the build and the preview checklist.
 
 ---
 
@@ -107,11 +108,65 @@ Hotspot IDs and their semantic meaning are defined in the content spec.
 
 ---
 
+## Agentic Workflow Patterns & Parallelization
+
+The environment has strong support for agentic workflows (git worktrees, `spawn_subagent`, background tasks, `todo_write` coordination, etc.). As an orchestrator you are expected to use these capabilities intelligently rather than defaulting to a single linear agent doing everything sequentially.
+
+### Core Principles
+- The simulation core contract (`computeSimulation`, `SimulationFrame`, attachment points, scalar functions) is the **primary synchronization point**. No heavy parallel work on visualization, UI, or data layers should proceed until this interface is designed, implemented, and reasonably stable.
+- The orchestrator (you) owns integration, conflict resolution, and final verification.
+- Use isolation where it reduces risk: worktrees for different agents, `capability_mode` restrictions on sub-agents, clear scoped prompts that reference specific harness sections.
+
+### Recommended Patterns
+
+**1. Worktree-based Parallel Streams (preferred for substantial independent work)**
+- Create dedicated worktrees from the main branch:
+  ```bash
+  git worktree add ../mezzo-sim -b feature/sim-core
+  git worktree add ../mezzo-viz -b feature/viz-layer
+  ```
+- Assign a sub-agent (via `spawn_subagent` with `cwd` pointing to the worktree) to each stream.
+- The orchestrator periodically pulls/merges stable interfaces from the sub-worktrees into the primary worktree.
+- This gives each stream a completely clean git history and filesystem while still allowing easy integration.
+
+**2. Sub-Agent Delegation via `spawn_subagent`**
+- Use this for specialized or long-running subtasks once contracts are agreed.
+- Good candidates:
+  - Pure simulation core + unit tests / console driver.
+  - R3F scene graph and particle systems (once `SimulationFrame` is stable).
+  - Data visualization components and charts.
+  - Theme application + additional `image_gen` / `image_edit` work.
+  - Mobile responsiveness + accessibility audit.
+  - Final Render deployment + verification run.
+- Always give sub-agents a focused prompt that starts with "You are a specialized agent for Mezzo. You have already read the relevant sections of the harness..." and reference exact plan files.
+- Use `isolation="worktree"` + explicit `cwd` when the sub-agent will do significant git work.
+- Use `todo_write` (with `merge: true`) as the shared coordination mechanism so the orchestrator can see progress across all agents.
+
+**3. Orchestrator + Swarm Pattern**
+- One main agent stays on the primary worktree acting as orchestrator.
+- It maintains the high-level `todo_write` list.
+- It spawns short-lived or long-lived sub-agents for leaf tasks.
+- The orchestrator periodically runs integration builds and the verification checklist.
+
+**4. When *Not* to Parallelize**
+- Anything that touches the core simulation interface before it is frozen.
+- Final integration, theme consistency enforcement, and the end-to-end verification checklist.
+- Early exploration / architecture decisions.
+
+### Natural Decomposition Opportunities (see also plan 07)
+- **Stream A (highest priority, independent)**: Pure `src/sim/` (types, noise, lifecycle, attachments, scalars, velocityField, simulation.ts) + a small test harness.
+- **Stream B**: R3F / Three.js visualization layer (Scene, StormGroup, VolumetricClouds, Funnel, Particles, HotspotBall) — can start once Stream A publishes a stable frame interface.
+- **Stream C**: UI + theme (TimeScrubber, DataVizPanel, KnowledgePanel, global styling, stamp effects) — can proceed in parallel with B once basic phase wiring exists.
+- **Stream D**: Art generation & asset integration (additional Imagine calls + copying into `public/art/`).
+- **Stream E**: Polish, perf, mobile, keyboard, final verification, Render deploy.
+
+Use `todo_write` to track these streams and their dependencies.
+
 ## Current Status Note
 
 This harness was initially authored by the orchestration planner agent in the first session. Future agents inherit this document as the constitution of the project.
 
-**If you are a future agent reading this**: You are empowered and expected to do excellent work. Read everything. Build it right. Commit often. Make Mezzo something people will enjoy learning from.
+**If you are a future agent reading this**: You are empowered and expected to do excellent work. Read everything. Build it right. Use the agentic tools available to you (worktrees, sub-agents, todo coordination) where they help, while respecting the non-negotiables. Make Mezzo something people will enjoy learning from.
 
 Now go read `plans/01-architecture-and-stack.md`.
 

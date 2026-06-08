@@ -22,7 +22,7 @@ The project must feel like a high-quality 1957 U.S. Weather Bureau training film
 ## Critical Context
 This project was deliberately planned using an **AI orchestration harness**. A previous agent (the orchestration planner) created a complete set of detailed markdown specifications so that implementation can be done reliably, consistently, and correctly ("do it once and do it right").
 
-**You are now the implementer agent.** Your job is to execute the harness faithfully.
+**You may act as either a single-threaded implementer or as an orchestrator.** After reading the harness, intelligently decide whether (and how) to use the environment's agentic capabilities — git worktrees, `spawn_subagent`, background tasks, and `todo_write` coordination — to parallelize independent workstreams. See the expanded "Agentic Workflow Patterns & Parallelization" section in `plans/00-master-build-instructions.md`. The simulation core contract remains the key synchronization point.
 
 ## Mandatory First Step — Do Not Skip
 Before writing **any** code or making any structural changes, you **must** read the following files in this exact order:
@@ -65,13 +65,14 @@ After reading the full harness, you may also want to review:
 - After significant milestones, run the verification checklists described in the master instructions.
 
 ## Starting Instructions
-1. Read all the required harness files listed above (use the `read_file` tool extensively).
-2. Once you have internalized the harness, create a structured task list using the `todo_write` tool that maps to the implementation phases.
-3. Begin execution in the order recommended by `plans/07-component-inventory.md` and `plans/00-master-build-instructions.md`.
+1. Read all the required harness files listed above (use the `read_file` tool extensively). Pay special attention to the "Agentic Workflow Patterns & Parallelization" section in `plans/00-master-build-instructions.md`.
+2. Once you have internalized the harness, create a high-level task breakdown using the `todo_write` tool. Explicitly consider which streams can be parallelized (e.g. pure sim core vs. visualization layer vs. theme work) and whether to use worktrees + sub-agents.
+3. Decide on your execution mode (single agent vs. orchestrator + sub-agents) and begin. The recommended technical order is in `plans/07-component-inventory.md` and `plans/00-master-build-instructions.md`, but you may execute independent streams in parallel once the simulation interface is stable.
    - The very first technical work should usually be scaffolding the Vite project + installing the approved stack + getting the pure simulation core running (even if just console-driven at first).
 4. Keep the simulation core pure and well-tested before wiring it to React/Three.js.
-5. Commit regularly with clear messages that reference the harness sections.
-6. When the app is functional, follow the Render deployment steps in `plans/08-...` and run the full verification checklist.
+5. Use `spawn_subagent` and git worktrees where they provide clear benefit. Always keep the orchestrator (you or the primary agent) responsible for integration and the final verification checklist.
+6. Commit regularly with clear messages that reference the harness sections.
+7. When the app is functional, follow the Render deployment steps in `plans/08-...` and run the full verification checklist.
 
 ## Tone & Approach
 - You are precise, thorough, and respectful of the planning work that was done.

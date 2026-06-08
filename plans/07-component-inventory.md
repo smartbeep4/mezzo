@@ -85,7 +85,9 @@ Keep the entire `plans/`, `art/`, `specs/` trees as the living documentation.
 
 ## Order of Creation (Suggested for the Agent)
 
-1. Simulation core + types + a tiny test harness (console or vitest) that you can drive with a slider or buttons.
+The list below is roughly sequential, but the orchestrator should identify parallelization opportunities (see "Agentic Workflow Patterns" in `plans/00-master-build-instructions.md` and the decomposition notes at the bottom of this file).
+
+1. Simulation core + types + a tiny test harness (console or vitest) that you can drive with a slider or buttons. **(Highest priority independent stream — start here.)**
 2. Zustand store + a minimal React app that shows the current phase and a "scrub me" input wired to `computeSimulation`.
 3. Basic Vite + Tailwind + R3F scaffold with a spinning box or simple torus just to prove the 3D pipeline.
 4. Theme tokens + first chrome (header + stub scrubber + stub panel) using the Imagine references.
@@ -101,6 +103,18 @@ Keep the entire `plans/`, `art/`, `specs/` trees as the living documentation.
 14. Deploy to Render + final checklist on the live URL.
 15. Update README with the live link and a short "built following the harness" note.
 
+## Parallelization Opportunities
+
+Once the simulation core contract (`computeSimulation`, `SimulationFrame`, attachment API, scalar functions) is designed and implemented:
+
+- Stream A (sim core + tests) can be developed in its own git worktree / sub-agent.
+- Stream B (R3F visualization layer: Scene, StormGroup, VolumetricClouds, Funnel, Particles, HotspotBall) can run in parallel with UI work once the frame interface is stable.
+- Stream C (UI + theme: TimeScrubber, DataVizPanel, KnowledgePanel, global styling, stamp effects, art integration) can proceed largely independently of the detailed 3D implementation.
+- Stream D (additional art generation via `image_gen` / `image_edit` + asset pipeline) is almost completely independent and can be delegated early.
+- Final integration, consistency enforcement, and the end-to-end verification checklist should remain with the primary orchestrator (or be done sequentially on the main worktree).
+
+Use `todo_write` with clear stream labels and `spawn_subagent` + worktrees for the independent streams. The orchestrator owns merging interfaces and the final verification.
+
 ## Do Not Create (or keep minimal)
 
 - Heavy charting libraries (implement simple SVG or Canvas charts from the sim data).
@@ -111,4 +125,4 @@ Keep the entire `plans/`, `art/`, `specs/` trees as the living documentation.
 
 Follow the master instructions and the individual plan files. When the harness and the code disagree, the harness wins (update the code, or propose a documented change to the harness).
 
-This inventory plus the detailed specs in the other plans should let a competent agent produce a coherent, maintainable codebase without thrashing.
+This inventory plus the detailed specs in the other plans should let a competent agent (or orchestrator + sub-agents) produce a coherent, maintainable codebase without thrashing. Use the agentic capabilities (worktrees, `spawn_subagent`, `todo_write`) described in `plans/00-master-build-instructions.md` to accelerate independent streams after the simulation contract is frozen.
