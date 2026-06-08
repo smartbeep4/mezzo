@@ -17,12 +17,13 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
-import { useMemo } from 'react'
 import { useMezzoStore } from '../store'
 import { HOTSPOT_IDS } from '../sim'
 import type { HotspotId } from '../sim'
 import { VolumetricClouds } from './VolumetricClouds'
 import { Ground } from './Ground'
+import { FunnelAndDebris } from './FunnelAndDebris'
+import { Particles } from './Particles'
 import type { SimulationFrame } from '../sim'
 
 interface StormProps {
@@ -32,62 +33,23 @@ interface StormProps {
 }
 
 function StormObjects({ frame, selectedId, onSelect }: StormProps) {
-  const { funnel, wallCloud, attachments } = frame
-
-  // Simple funnel stub (will be replaced by proper FunnelAndDebris in next phase)
-  const funnelRotation = useMemo(() => {
-    return new THREE.Euler(funnel.tiltX, 0, funnel.tiltZ)
-  }, [funnel.tiltX, funnel.tiltZ])
+  const { wallCloud, attachments } = frame
 
   const wallY = wallCloud.baseHeight
 
   return (
     <group>
-      {/* Volumetric clouds + improved ground (phase-driven) */}
+      {/* Clouds + ground (phase driven) */}
       <VolumetricClouds frame={frame} />
       <Ground frame={frame} />
 
-      {/* Funnel stub (cylinder + core) */}
-      <group position={[0, funnel.height / 2, 0]} rotation={funnelRotation}>
-        <mesh>
-          <cylinderGeometry
-            args={[
-              funnel.baseRadius,
-              funnel.topRadius || funnel.baseRadius * 0.6,
-              Math.max(0.1, funnel.height),
-              18,
-              1,
-              true,
-            ]}
-          />
-          <meshLambertMaterial
-            color="#4a5a68"
-            side={THREE.DoubleSide}
-            transparent
-            opacity={0.35 + funnel.condensation * 0.45}
-          />
-        </mesh>
-        <mesh>
-          <cylinderGeometry
-            args={[
-              funnel.baseRadius * 0.6,
-              (funnel.topRadius || funnel.baseRadius * 0.6) * 0.7,
-              Math.max(0.1, funnel.height),
-              12,
-              1,
-              true,
-            ]}
-          />
-          <meshLambertMaterial
-            color="#2a3a48"
-            side={THREE.DoubleSide}
-            transparent
-            opacity={0.25 + funnel.condensation * 0.55}
-          />
-        </mesh>
-      </group>
+      {/* Proper parametric funnel + debris sheath */}
+      <FunnelAndDebris frame={frame} />
 
-      {/* Wall cloud mass hint */}
+      {/* Flowing particles (condensation + debris) advected by sim velocity field */}
+      <Particles frame={frame} />
+
+      {/* Wall cloud mass hint (subtle) */}
       <mesh position={[0, wallY + 0.3, 0]}>
         <sphereGeometry args={[wallCloud.radius * 0.9]} />
         <meshLambertMaterial
@@ -97,7 +59,7 @@ function StormObjects({ frame, selectedId, onSelect }: StormProps) {
         />
       </mesh>
 
-      {/* The 8 physicalized attachment preview spheres (live from sim) */}
+      {/* The 8 physicalized attachment preview spheres (live from sim) — will become styled HotspotBall components */}
       {HOTSPOT_IDS.map((id) => {
         const att = attachments[id]
         const isSel = id === selectedId
@@ -133,12 +95,6 @@ function StormObjects({ frame, selectedId, onSelect }: StormProps) {
           </group>
         )
       })}
-
-      {/* Meso ring aloft */}
-      <mesh position={[0, frame.meso.height, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[frame.meso.radius * 0.7, frame.meso.radius * 0.85, 24]} />
-        <meshBasicMaterial color="#2E5C6E" transparent opacity={0.25} side={THREE.DoubleSide} />
-      </mesh>
     </group>
   )
 }
