@@ -1,238 +1,316 @@
 /**
- * TEMPORARY SIMULATION TEST HARNESS (pure core verification).
- * This is the "console-driven" first running version of the sim per master instructions.
- * 
- * - Phase scrubber + playhead (keyboard friendly)
- * - Live scalars and lifecycle stage
- * - Live positions + relevance for all 8 dynamic physicalized hotspots
- * - Buttons to step / validate / log frame
- * - Proves: attachments move continuously, scalars are sane, velocity field exists, everything deterministic.
+ * MEZZO — Main Application Shell (Phase 1+)
+ * Themed 1950s U.S. Weather Bureau / Fallout civil defense aesthetic.
+ * - Header with stamps
+ * - Primary 3D canvas (R3F) driven live by the pure simulation core
+ * - Live side panels (Data scalars + Knowledge for selected topic)
+ * - Themed time scrubber + playback controls (wired to Zustand store)
+ * - Interactive 8-hotspot legend (positions from sim, clickable)
+ * - Keyboard support
  *
- * This will be replaced by the full R3F + themed UI (TimeScrubber, DataVizPanel, KnowledgePanel, 3D Scene)
- * once the core contract is exercised and stable.
+ * The 3D currently shows a proof-of-concept funnel + the 8 physicalized attachment
+ * spheres whose world positions come exclusively from computeSimulation(phase).
+ * This is the first visual confirmation of the dynamic hotspot requirement.
  *
- * References: plans/00, 02, 03, 04, 07.
+ * Future phases will extract TimeScrubber / DataVizPanel / KnowledgePanel,
+ * replace stub 3D objects with VolumetricClouds + Funnel + Particles + real
+ * pulsing HotspotBalls, add camera presets, full responsive, etc.
+ *
+ * All science and positions remain 100% from the pure sim (src/sim).
+ * Refs: plans/00, 01, 05, 07 (component inventory), 14-r3f-scaffold.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { computeSimulation, HOTSPOT_IDS, validateFrame, getLifecycleStage, type HotspotId } from './sim';
-import type { SimulationFrame } from './sim/types';
+import { useEffect } from 'react'
+import { Scene } from './three/Scene'
+import { useMezzoStore } from './store'
+import { HOTSPOT_IDS, getLifecycleStage } from './sim'
+import { topics } from './content/topics'
+import type { SimulationFrame } from './sim/types'
 
-const SPEEDS = [0.5, 1, 2, 4];
+const SPEEDS = [0.5, 1, 2, 4] as const
 
 export default function App() {
-  const [phase, setPhase] = useState(0.22);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1);
-  const [selectedId, setSelectedId] = useState<HotspotId | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const lastTimeRef = useRef<number>(0);
+  const phase = useMezzoStore((s) => s.phase)
+  const isPlaying = useMezzoStore((s) => s.isPlaying)
+  const playbackSpeed = useMezzoStore((s) => s.playbackSpeed)
+  const selectedId = useMezzoStore((s) => s.selectedTopicId)
 
-  const frame: SimulationFrame = computeSimulation(phase);
-  const stage = getLifecycleStage(phase);
-  const valid = validateFrame(frame);
+  const setPhase = useMezzoStore((s) => s.setPhase)
+  const togglePlay = useMezzoStore((s) => s.togglePlay)
+  const setSpeed = useMezzoStore((s) => s.setSpeed)
+  const selectTopic = useMezzoStore((s) => s.selectTopic)
 
-  // Simple RAF playback loop (respects speed)
+  const frame: SimulationFrame = useMezzoStore((s) => s.getFrame())
+  const stage = getLifecycleStage(phase)
+
+  // Playback loop — drives the entire experience (3D + numbers + scrubber)
+  // Note: setPhase expects a number (Zustand action), not a React-style updater.
   useEffect(() => {
-    if (!isPlaying) {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      return;
+    if (!isPlaying) return
+
+    let raf: number
+    let last = performance.now()
+
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000
+      last = now
+
+      const current = useMezzoStore.getState().phase
+      let next = current + dt * playbackSpeed * 0.22
+      if (next >= 1) {
+        next = 1
+        setTimeout(() => {
+          const st = useMezzoStore.getState()
+          if (st.isPlaying) st.togglePlay()
+        }, 0)
+      }
+      setPhase(next)
+
+      raf = requestAnimationFrame(tick)
     }
 
-    const tick = (t: number) => {
-      const dt = (t - (lastTimeRef.current || t)) / 1000;
-      lastTimeRef.current = t;
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [isPlaying, playbackSpeed, setPhase])
 
-      setPhase((prev) => {
-        let next = prev + dt * speed * 0.18; // tuned so 1.0 takes ~reasonable real seconds at 1x
-        if (next >= 1.0) {
-          next = 1.0;
-          setIsPlaying(false);
-        }
-        return next;
-      });
-
-      rafRef.current = requestAnimationFrame(tick);
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [isPlaying, speed]);
+  // Keyboard controls (space, arrows, 1-4 stages, home/end)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === ' ' || e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        if (phase >= 0.999) setPhase(0)
+        togglePlay()
+      }
+      if (e.key === 'ArrowLeft') {
+        setPhase(Math.max(0, phase - 0.018))
+      }
+      if (e.key === 'ArrowRight') {
+        setPhase(Math.min(1, phase + 0.018))
+      }
+      if (e.key === 'Home') setPhase(0)
+      if (e.key === 'End') setPhase(1)
+      if (e.key === 'r' || e.key === 'R') setPhase(0.22)
+      if (e.key === '1') setPhase(0.12)
+      if (e.key === '2') setPhase(0.33)
+      if (e.key === '3') setPhase(0.58)
+      if (e.key === '4') setPhase(0.82)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [phase, setPhase, togglePlay])
 
   const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setIsPlaying(false);
-    setPhase(parseFloat(e.target.value));
-  };
+    setPhase(parseFloat(e.target.value))
+  }
 
   const jumpTo = (p: number) => {
-    setIsPlaying(false);
-    setPhase(clamp(p, 0, 1));
-  };
-
-  const togglePlay = () => {
-    if (phase >= 0.999) setPhase(0);
-    setIsPlaying((v) => !v);
-  };
+    setPhase(Math.max(0, Math.min(1, p)))
+  }
 
   const cycleSpeed = () => {
-    const idx = SPEEDS.indexOf(speed);
-    setSpeed(SPEEDS[(idx + 1) % SPEEDS.length]);
-  };
+    const idx = SPEEDS.indexOf(playbackSpeed as any)
+    const next = SPEEDS[(idx + 1) % SPEEDS.length]
+    setSpeed(next)
+  }
 
   const logFrame = () => {
-    console.log('[MEZZO] current frame @ phase', phase.toFixed(3), frame);
-    console.log('[MEZZO] attachments (world positions):', frame.attachments);
-  };
+    console.log('[MEZZO] frame @', phase.toFixed(3), frame)
+  }
 
-  const validate = () => {
-    const ok = validateFrame(frame);
-    console.log('[MEZZO] validateFrame @', phase.toFixed(3), '=>', ok ? 'PASS' : 'FAIL');
-    alert(ok ? 'Frame valid ✓ (see console for details)' : 'Frame INVALID — see console');
-  };
-
-  const selectHotspot = (id: HotspotId) => {
-    setSelectedId(id === selectedId ? null : id);
-  };
-
-  // Sample velocity at a few diagnostic points (ground core, mid funnel, RFD region)
-  const velCore = frame.getVelocityAt({ x: 0.1, y: 0.8, z: 0.2 }, phase);
-  const velRFD = frame.getVelocityAt({ x: -2.8, y: 1.5, z: -2.4 }, phase);
+  const selectedTopic = selectedId ? topics[selectedId] : null
 
   return (
-    <div className="min-h-screen bg-[#E8D5A3] text-[#1F2528] p-4 font-mono text-sm app-shell">
-      <header className="max-w-6xl mx-auto mb-4 flex items-center justify-between border-b-4 border-[#1F2528] pb-3">
-        <div>
-          <div className="stamp text-2xl tracking-[3px] text-[#8B2E2E]">MEZZO</div>
-          <div className="text-[10px] tracking-[1.5px] text-[#2E5C6E] -mt-1">U.S. SEVERE STORMS — TRAINING DIVISION — 1957</div>
+    <div className="min-h-screen bg-[#E8D5A3] text-[#1F2528] font-mono text-sm app-shell flex flex-col">
+      {/* HEADER — 1950s government film title treatment */}
+      <header className="app-header px-4 py-3 flex items-center justify-between max-w-[1280px] mx-auto w-full">
+        <div className="flex items-center gap-3">
+          <div>
+            <div className="stamp text-[28px] tracking-[4px] text-[#8B2E2E] leading-none">MEZZO</div>
+            <div className="text-[9px] tracking-[2px] text-[#2E5C6E] -mt-0.5 font-bold">U.S. SEVERE STORMS — TRAINING DIVISION — 1957</div>
+          </div>
+          <div className="hidden md:block text-xs pl-3 border-l border-[#1F2528]/40 text-[#2E5C6E]">
+            MESOCYCLONE &amp; TORNADO VISUALIZER<br />
+            <span className="opacity-70">Pure client-side • Procedural • Educational</span>
+          </div>
         </div>
-        <div className="text-right">
-          <div className="text-xs">PURE SIMULATION TEST HARNESS</div>
-          <div className="text-[10px] text-[#2E5C6E]">phase-driven • attachments physicalized • no three yet</div>
+
+        <div className="flex items-center gap-2 text-xs">
+          <div className="stamp stamp-teal text-[10px] px-2 py-px">OFFICIAL TRAINING MATERIAL</div>
+          <button
+            onClick={() => alert('MEZZO — 1957 U.S. Weather Bureau training film brought to interactive life.\n\nAll positions, scalars, and lifecycle are driven by a pure simulation core (see src/sim).\nScrub the timeline or click the physicalized hotspots in the 3D view.')}
+            className="btn text-xs px-2 py-0.5"
+          >
+            ABOUT
+          </button>
         </div>
       </header>
 
-      {/* PRIMARY TIME CONTROL — will become the big themed scrubber */}
-      <div className="max-w-6xl mx-auto mb-6">
-        <div className="scrubber p-3 rounded-none border-4 border-[#1F2528] bg-[#1F2528] text-[#E8D5A3]">
-          <div className="flex items-center gap-3 mb-2">
-            <button onClick={togglePlay} className="btn btn-primary text-base px-5 py-1">
-              {isPlaying ? 'PAUSE ■' : 'PLAY ▶'}
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col lg:flex-row max-w-[1280px] mx-auto w-full gap-3 p-3 overflow-hidden">
+        {/* 3D CANVAS — the hero */}
+        <div className="flex-1 flex flex-col min-h-[420px] lg:min-h-0">
+          <div className="three-container flex-1 rounded-none overflow-hidden relative">
+            <Scene />
+          </div>
+          <div className="text-[9px] text-[#2E5C6E] mt-1 pl-1 tracking-widest hidden lg:block">
+            DRAG TO ORBIT • SCROLL TO ZOOM • HOTSPOTS IN 3D ARE DRIVEN BY THE SIM
+          </div>
+        </div>
+
+        {/* SIDE PANELS — Data + Knowledge (expandable in later phases) */}
+        <div className="w-full lg:w-80 xl:w-96 flex flex-col gap-3 side-panel">
+          {/* DATA PANEL (scalars live from sim) */}
+          <div className="vintage-panel p-3 flex-shrink-0">
+            <div className="panel-header -mx-3 -mt-3 mb-3 text-sm">DATA — CURRENT CONDITIONS</div>
+
+            <div className="space-y-1 text-base">
+              <div className="flex justify-between">
+                <span>CORE PRESSURE DROP</span>
+                <span className="data-readout font-bold text-[#8B2E2E]">{frame.scalars.pressureDelta.toFixed(0)} mb</span>
+              </div>
+              <div className="flex justify-between">
+                <span>EST. MAX SURFACE WIND</span>
+                <span className="data-readout font-bold text-[#8B2E2E]">{frame.scalars.maxTangentialWind.toFixed(0)} mph</span>
+              </div>
+              <div className="flex justify-between">
+                <span>UPDRAFT STRENGTH</span>
+                <span className="data-readout">{frame.scalars.updraftMax.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>PRECIP / DEBRIS LOAD</span>
+                <span className="data-readout">{frame.scalars.precipRate.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="mt-3 pt-2 border-t border-[#1F2528]/20 text-[10px] text-[#2E5C6E]">
+              All values are deterministic functions of phase from the pure simulation core.
+            </div>
+          </div>
+
+          {/* KNOWLEDGE PANEL — reacts to selection (from 3D or list) */}
+          <div className="vintage-panel p-3 flex-1 min-h-[180px]">
+            <div className="panel-header -mx-3 -mt-3 mb-3 text-sm flex items-center justify-between">
+              <span>KNOWLEDGE — {selectedId ? selectedTopic?.title.toUpperCase() : 'SELECT A HOTSPOT'}</span>
+              {selectedId && (
+                <button onClick={() => selectTopic(null)} className="text-xs underline">CLEAR</button>
+              )}
+            </div>
+
+            {selectedTopic ? (
+              <div className="text-sm space-y-2">
+                <p className="leading-snug">{selectedTopic.blurb}</p>
+                <ul className="text-xs list-disc pl-4 space-y-0.5 text-[#1F2528]/90">
+                  {selectedTopic.facts.slice(0, 3).map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
+                <div className="text-[10px] text-[#2E5C6E] pt-1">
+                  Best viewing: phases {selectedTopic.bestPhases}
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-[#2E5C6E]">
+                Click any glowing sphere in the 3D view or any item in the legend below to load the corresponding educational content. The physical position of the hotspot is authoritative from the simulation at the current phase.
+              </div>
+            )}
+          </div>
+
+          {/* LIVE 8-HOTSPOT LEGEND (positions from sim — proves physicalization) */}
+          <div className="vintage-panel p-3 text-xs">
+            <div className="panel-header -mx-3 -mt-3 mb-2 text-sm">8 PHYSICALIZED HOTSPOTS — LIVE POSITIONS</div>
+            <div className="grid grid-cols-1 gap-1">
+              {HOTSPOT_IDS.map((id) => {
+                const a = frame.attachments[id]
+                const isSel = id === selectedId
+                const label = id.replace('_', ' ').toUpperCase()
+                return (
+                  <button
+                    key={id}
+                    onClick={() => selectTopic(isSel ? null : id)}
+                    className={`text-left px-2 py-1 border flex justify-between items-center transition-colors font-mono ${
+                      isSel
+                        ? 'border-[#C17B3A] bg-[#C17B3A]/10'
+                        : 'border-[#1F2528]/30 hover:bg-[#1F2528]/5'
+                    }`}
+                  >
+                    <span className="font-bold tracking-wider">{label}</span>
+                    <span className="data-readout text-[#8B2E2E] text-[10px]">
+                      y:{a.y.toFixed(1)} rel:{a.relevance.toFixed(2)}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="text-[9px] text-[#2E5C6E] mt-2">Positions are computed inside the pure sim (src/sim/attachments.ts). They move continuously with storm features as you scrub.</div>
+          </div>
+        </div>
+      </div>
+
+      {/* PRIMARY TIME SCRUBBER — the star of the experience (thematic film-gauge style) */}
+      <div className="scrubber-bar mt-auto px-3 py-2">
+        <div className="max-w-[1280px] mx-auto">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {/* Play controls */}
+            <button
+              onClick={() => {
+                if (phase >= 0.999) setPhase(0)
+                togglePlay()
+              }}
+              className="btn btn-primary text-sm px-4 py-1 flex items-center gap-1.5"
+            >
+              {isPlaying ? 'PAUSE' : 'PLAY'} <span className="text-xs">▶</span>
             </button>
-            <button onClick={cycleSpeed} className="btn text-xs px-3 py-1">SPEED ×{speed}</button>
 
-            <div className="flex-1" />
+            <button onClick={cycleSpeed} className="btn text-xs px-3 py-1">
+              ×{playbackSpeed}
+            </button>
 
-            <div className="data-readout text-[#C17B3A] text-lg font-bold tracking-widest">
+            {/* Phase readout + stage */}
+            <div className="data-readout text-[#C17B3A] font-bold tracking-[1.5px] text-base ml-1">
               PHASE {phase.toFixed(3)} — {stage}
             </div>
 
-            <button onClick={() => jumpTo(0)} className="btn text-xs">0.00</button>
-            <button onClick={() => jumpTo(0.3)} className="btn text-xs">TOUCHDOWN</button>
-            <button onClick={() => jumpTo(0.58)} className="btn text-xs">MATURE</button>
-            <button onClick={() => jumpTo(0.85)} className="btn text-xs">ROPE</button>
-            <button onClick={() => jumpTo(1)} className="btn text-xs">1.00</button>
+            {/* Stage jump buttons (thematic) */}
+            <div className="flex gap-1 ml-auto lg:ml-2">
+              <button onClick={() => jumpTo(0.08)} className="btn text-[10px] px-2 py-px">WALL CLOUD</button>
+              <button onClick={() => jumpTo(0.33)} className="btn text-[10px] px-2 py-px">TOUCHDOWN</button>
+              <button onClick={() => jumpTo(0.58)} className="btn text-[10px] px-2 py-px">MATURE</button>
+              <button onClick={() => jumpTo(0.82)} className="btn text-[10px] px-2 py-px">ROPE-OUT</button>
+            </div>
+
+            <button onClick={() => { setPhase(0); if (isPlaying) togglePlay() }} className="btn text-xs ml-1">RESET</button>
+            <button onClick={logFrame} className="btn text-xs">LOG</button>
           </div>
 
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.001}
-            value={phase}
-            onChange={handleScrub}
-            className="w-full accent-[#C17B3A] cursor-pointer"
-          />
+          {/* The actual scrubber track */}
+          <div className="mt-1.5 flex items-center gap-3">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.0005}
+              value={phase}
+              onChange={handleScrub}
+              className="flex-1 accent-[#C17B3A] cursor-pointer"
+              style={{ height: '6px' }}
+            />
+            <div className="data-readout w-12 text-right text-[#C17B3A] tabular-nums">{phase.toFixed(2)}</div>
+          </div>
 
-          <div className="flex justify-between text-[9px] mt-1 tracking-[1px] text-[#C17B3A]/70">
+          {/* Stage tick labels */}
+          <div className="flex justify-between text-[9px] tracking-[1px] text-[#C17B3A]/70 mt-0.5 px-0.5">
             <div>WALL CLOUD</div>
-            <div>TOUCHDOWN</div>
-            <div>MATURE</div>
+            <div>FUNNEL / TOUCHDOWN</div>
+            <div>MATURE TORNADO</div>
             <div>ROPE-OUT</div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* SCALARS + VALIDATION (data-viz precursor) */}
-        <div className="lg:col-span-5 vintage-panel p-4">
-          <div className="panel-header mb-3 -mx-4 -mt-4">DATA — LIVE SCALARS (from pure sim)</div>
-
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-base">
-            <div>CORE ΔP</div>
-            <div className="data-readout text-right text-[#8B2E2E] font-bold">{frame.scalars.pressureDelta.toFixed(0)} mb</div>
-
-            <div>EST. MAX WIND</div>
-            <div className="data-readout text-right text-[#8B2E2E] font-bold">{frame.scalars.maxTangentialWind.toFixed(0)} mph</div>
-
-            <div>UPDRAFT (proxy)</div>
-            <div className="data-readout text-right">{frame.scalars.updraftMax.toFixed(2)}</div>
-
-            <div>PRECIP / DEBRIS</div>
-            <div className="data-readout text-right">{frame.scalars.precipRate.toFixed(2)}</div>
-          </div>
-
-          <div className="mt-4 text-xs flex gap-2">
-            <button onClick={validate} className="btn">VALIDATE FRAME</button>
-            <button onClick={logFrame} className="btn">LOG FULL FRAME</button>
-            <div className={`ml-auto px-2 py-0.5 text-[10px] border ${valid ? 'border-[#2E5C6E] text-[#2E5C6E]' : 'border-[#8B2E2E] text-[#8B2E2E]'}`}>
-              {valid ? 'VALID ✓' : 'INVALID'}
-            </div>
-          </div>
-
-          <div className="mt-3 text-[10px] text-[#2E5C6E]">
-            Velocity sample (core): ({velCore.x.toFixed(2)}, {velCore.y.toFixed(2)}, {velCore.z.toFixed(2)})<br />
-            Velocity sample (RFD flank): ({velRFD.x.toFixed(2)}, {velRFD.y.toFixed(2)}, {velRFD.z.toFixed(2)})
-          </div>
-        </div>
-
-        {/* THE 8 DYNAMIC ATTACHMENTS — proves physicalized movement */}
-        <div className="lg:col-span-7 vintage-panel p-4">
-          <div className="panel-header mb-3 -mx-4 -mt-4">8 PHYSICALIZED HOTSPOTS — LIVE WORLD POSITIONS (sim core)</div>
-
-          <div className="text-[10px] mb-2 text-[#2E5C6E]">All positions computed inside computeSimulation(phase). Scrub to watch them move continuously with the storm features. Click to select (sim does not care).</div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-            {HOTSPOT_IDS.map((id) => {
-              const a = frame.attachments[id];
-              const isSel = id === selectedId;
-              return (
-                <button
-                  key={id}
-                  onClick={() => selectHotspot(id)}
-                  className={`text-left border p-2 font-mono transition-colors ${isSel ? 'border-[#C17B3A] bg-[#C17B3A]/10' : 'border-[#1F2528]/40 hover:bg-[#1F2528]/5'}`}
-                >
-                  <div className="flex justify-between">
-                    <span className="font-bold tracking-wider">{id.toUpperCase().replace('_', ' ')}</span>
-                    <span className="data-readout text-[#8B2E2E]">rel {a.relevance.toFixed(2)}</span>
-                  </div>
-                  <div className="data-readout mt-0.5 text-[11px]">
-                    x:{a.x.toFixed(2)}  y:{a.y.toFixed(2)}  z:{a.z.toFixed(2)}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedId && (
-            <div className="mt-3 text-xs border border-[#C17B3A] p-2 bg-white/40">
-              SELECTED: <span className="font-bold">{selectedId}</span> — position is authoritative from the simulation at this exact phase. In the final app this will highlight the pulsing 3D ball and open the knowledge panel.
-            </div>
-          )}
-        </div>
-      </div>
-
-      <footer className="max-w-6xl mx-auto mt-8 text-[10px] text-[#2E5C6E] flex gap-4 flex-wrap">
-        <div>MEZZO SIM CORE v0.1 — pure TS, deterministic, no framework deps.</div>
-        <div>Follows plans/02 + 03 + 04 exactly. 8 hotspots are physicalized (positions from computeSimulation).</div>
-        <div className="ml-auto">Next: R3F viz layer + full themed UI (TimeScrubber, DataViz, Knowledge, pulsing balls)</div>
+      <footer className="text-center text-[9px] text-[#2E5C6E] py-1 border-t border-[#1F2528]/20">
+        MEZZO • Pure static • All motion &amp; data from src/sim/computeSimulation(phase) • 1950s civil defense aesthetic
       </footer>
     </div>
-  );
+  )
 }
 
-function clamp(v: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, v));
-}
